@@ -3,24 +3,29 @@ project(colorReduction)
 
 set(CMAKE_CXX_STANDARD 17)
 
-#--------------------------------------------------------------------
-# dependencies
-#--------------------------------------------------------------------
-add_subdirectory(glad)
-add_subdirectory(glfw)
-add_subdirectory(imGui)
-
-include_directories(glad/include)   # glad headers
-include_directories(glfw/include)   # glfw headers
-include_directories(imGui/include)  # imGui headers
 
 #--------------------------------------------------------------------
 # source
 #--------------------------------------------------------------------
 file(GLOB_RECURSE SOURCE
-        source/*.hpp source/*.h
-        source/*.cpp source/*.c)
+        src/*.hpp src/*.h
+        src/*.cpp src/*.c)
 
 add_executable(colorReduction ${SOURCE})
 
-target_link_libraries(colorReduction opengl32 glfw glad imGui)
+add_subdirectory(deps)
+
+target_link_libraries(colorReduction opengl32 glfw glad imGui stb tinyfiledialogs glm)
+
+add_custom_command(
+        TARGET colorReduction POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/src/windows/sh.vert
+        ${CMAKE_CURRENT_BINARY_DIR}/sh.vert)
+
+add_custom_command(
+        TARGET colorReduction POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/src/windows/sh.frag
+        ${CMAKE_CURRENT_BINARY_DIR}/sh.frag)
+
