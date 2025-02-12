@@ -157,8 +157,8 @@ void application::addWindow(std::unique_ptr<::window<application>> &&window) {
 
 void application::addWindows()
 {
-    addWindow(std::make_unique<testWindow>(*this, "test window 1"));
-    addWindow(std::make_unique<testWindow>(*this, "test window 2"));
+    //addWindow(std::make_unique<testWindow>(*this, "test window 1"));
+    //addWindow(std::make_unique<testWindow>(*this, "test window 2"));
     addWindow(std::make_unique<imageViewer>(*this));
 }
 

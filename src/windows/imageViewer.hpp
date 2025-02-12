@@ -18,7 +18,17 @@ class application;
 class imageViewer : public window<application>
 {
 public:
-    explicit imageViewer(application& app) : window<application>(app) { }
+    static const char * supportedFormats[5];
+    static const int supportedFormatsNum;
+
+    static const char * types[2];
+    enum type
+    {
+        stretch,
+        scale,
+    };
+
+    explicit imageViewer(application& app) : window(app) { }
     ~imageViewer() override = default;
 
     void prepareEnvironmentOnce() override;
@@ -33,22 +43,34 @@ public:
     void cleanEnvironmentOnce() override;
 
     void loadImage();
+    void rescaleVBO() const;
     void rescale_framebuffer(float width, float height);
+    void changeType(type newType);
 
 private:
+    void typeRescaleScaledA(float newVertices[]) const;
+    void typeRescaleScaledB(float newVertices[]) const;
+
     static std::unique_ptr<shader> shader_s;
     const char* fileName_ = nullptr;
     int width_ = 0,
         height_ = 0,
         nrChannels_ = 0;
+    float aspectRatio_ = 1.0f;
+    GLenum format_ = GL_RGB;
 
-    GLuint texture_ = 0;
-    GLuint FBO_ = 0;
-    GLuint RBO_ = 0;
+    GLuint texture_ = 0,
+        textureDisplayed_ = 0,
+        FBO_ = 0;
+    int widthFB_ = 0,
+        heightFB_ = 0;
 
-    static GLuint VAO_s;
-    static GLuint VBO_s;
+    GLuint VAO_ = 0,
+        VBO_ = 0;
     static float vertices_s[6 * 5];
+
+    int typeInt_ = 0;
+    type type_ = stretch;
 };
 
 ///////////////////////////////////////////////////////////////////
@@ -57,10 +79,11 @@ private:
 
 #include "../application.hpp"
 
-std::unique_ptr<shader> imageViewer::shader_s;
+const char * imageViewer::supportedFormats[5] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif" };
+const int imageViewer::supportedFormatsNum = sizeof(supportedFormats) / sizeof(char *);
+const char * imageViewer::types[2] = { "stretch", "scale" };
 
-GLuint imageViewer::VAO_s = 0;
-GLuint imageViewer::VBO_s = 0;
+std::unique_ptr<shader> imageViewer::shader_s;
 
 float imageViewer::vertices_s[6 * 5] = {
     -1.0f, -1.0f, 0.0f,   0.0f,  0.0f,
@@ -77,21 +100,22 @@ inline void imageViewer::prepareEnvironment()
     // texture
     glGenTextures(1, &texture_);
 
-    // FBO + RBO
+    // VAO + VBO
+    glGenVertexArrays(1, &VAO_);
+    glBindVertexArray(VAO_);
+
+    glGenBuffers(1, &VBO_);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_s), vertices_s, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    // FBO + textureDisplayed
     glGenFramebuffers(1, &FBO_);
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO_);
-
-    glGenRenderbuffers(1, &RBO_);
-    glBindRenderbuffer(GL_RENDERBUFFER, RBO_);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, parent_.window.width, parent_.window.height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, RBO_);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n";
-
-    // reset bindings
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glGenTextures(1, &textureDisplayed_);
 }
 
 inline void imageViewer::prepareEnvironmentOnce()
@@ -99,57 +123,56 @@ inline void imageViewer::prepareEnvironmentOnce()
     stbi_set_flip_vertically_on_load(true);
 
     shader_s = std::make_unique<shader>("sh.vert", "sh.frag");
-
-    // VAO + VBO
-    glGenVertexArrays(1, &VAO_s);
-    glBindVertexArray(VAO_s);
-
-    glGenBuffers(1, &VBO_s);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_s);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices_s), vertices_s, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
 }
 
 inline void imageViewer::ui()
 {
     ImGui::Begin("Image Viewer");
-    ImGui::Text("Select an image");
-    if(ImGui::Button("OK")) {
-        fileName_ = tinyfd_openFileDialog("select image",
+
+    // some buttons in two column layout
+    ImGui::Columns(2);
+    ImGui::SetColumnWidth(0, 100);
+    ImGui::SetNextItemWidth(80);
+    if(ImGui::Button("select", ImVec2(80, 20))) {
+        fileName_ = tinyfd_openFileDialog("Select image",
             "",
-            0,
-            static_cast<const char * const * const>(nullptr),
+            supportedFormatsNum,
+            supportedFormats,
             "",
             0);
-        loadImage();
+        if (fileName_ != nullptr)
+            loadImage();
+    }
+    ImGui::NextColumn();
+    ImGui::SetNextItemWidth(120);
+    if (ImGui::Combo("Type", &typeInt_, types, 2)) {
+        changeType(static_cast<type>(typeInt_));
     }
 
+    // image
+    ImGui::Columns(1);
+    ImGui::Text((std::string("Selected image: ") + (fileName_ != nullptr ? fileName_ : "<none>")).c_str());
+
     // we access the ImGui window size
-    const float window_width = ImGui::GetContentRegionAvail().x;
-    const float window_height = ImGui::GetContentRegionAvail().y;
+    const float width = ImGui::GetContentRegionAvail().x;
+    const float height = ImGui::GetContentRegionAvail().y;
 
     // we rescale the framebuffer to the actual window size here and reset the glViewport
-    rescale_framebuffer(window_width, window_height);
-    glViewport(0, 0, static_cast<GLsizei>(window_width), static_cast<GLsizei>(window_height));
+    rescale_framebuffer(width, height);
+    rescaleVBO();
+
 
     // we get the screen position of the window
-    ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
 
-    // and here we can add our created texture as image to ImGui
-    // unfortunately we need to use the cast to void* or I didn't find another way tbh
+    // add texture as image to ImGui
     ImGui::GetWindowDrawList()->AddImage(
-        texture_,
+        textureDisplayed_,
         ImVec2(pos.x, pos.y),
-        ImVec2(pos.x + window_width, pos.y + window_height),
+        ImVec2(pos.x + width, pos.y + height),
         ImVec2(0, 1),
         ImVec2(1, 0)
     );
-
-    ImGui::Text((std::string("Selected image: ") + (fileName_ != nullptr ? fileName_ : "")).c_str());
     ImGui::End();
 }
 
@@ -160,73 +183,217 @@ inline void imageViewer::render()
     if (fileName_ == nullptr)
         return;
 
+    // set viewport for the displayed image
+    glViewport(0, 0, static_cast<GLsizei>(widthFB_), static_cast<GLsizei>(heightFB_));
+    // clear before redrawing
     glBindFramebuffer(GL_FRAMEBUFFER, FBO_);
-    glBindRenderbuffer(GL_RENDERBUFFER, RBO_);
-    glBindTexture(GL_TEXTURE_2D, texture_);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
 
+    glBindTexture(GL_TEXTURE_2D, texture_);
     shader_s->use();
-    glBindVertexArray(VAO_s);
+    glBindVertexArray(VAO_);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
+    glBindVertexArray(0);
+    glUseProgram(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
 inline void imageViewer::cleanEnvironmentOnce()
 {
     shader_s.reset();
 
-    glDeleteBuffers(1, &VBO_s);
-    glDeleteVertexArrays(1, &VAO_s);
+    glDeleteBuffers(1, &VBO_);
+    glDeleteVertexArrays(1, &VAO_);
 }
 
 inline void imageViewer::cleanEnvironment()
 {
     glDeleteTextures(1, &texture_);
+    texture_ = 0;
 
     glDeleteFramebuffers(1, &FBO_);
-    glDeleteRenderbuffers(1, &RBO_);
+    FBO_ = 0;
+    glDeleteTextures(1, &textureDisplayed_);
+    textureDisplayed_ = 0;
 }
 
 inline void imageViewer::loadImage()
 {
-    // texture
+    // loaded image texture
     unsigned char* data = stbi_load(fileName_, &width_, &height_, &nrChannels_, 0);
+    aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
 
-    GLenum format = GL_RGB; // Default
+    int unpackAlignment = 1;
+    if (width_ & 4 == 0 || height_ & 4 == 0) {
+        unpackAlignment = 4;
+    }
+    glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
+
+    format_ = GL_RGB;
     if (nrChannels_ == 1)
-        format = GL_RED;
+        format_ = GL_RED;
     else if (nrChannels_ == 3)
-        format = GL_RGB;
+        format_ = GL_RGB;
     else if (nrChannels_ == 4)
-        format = GL_RGBA;
+        format_ = GL_RGBA;
 
     glBindTexture(GL_TEXTURE_2D, texture_);
-
-    // set texture wrapping to GL_REPEAT (default wrapping method)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    // set texture filtering parameters
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<int>(format), width_, height_, 0, format, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0,
+        static_cast<int>(format_),
+        static_cast<GLsizei>(width_),
+        static_cast<GLsizei>(height_), 0, format_, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
     stbi_image_free(data);
+
+    // create all other data needed for rendering
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO_);
+
+    glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format_), width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureDisplayed_, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n";
+        throw std::runtime_error("ERROR::FRAMEBUFFER:: Framebuffer is not complete!");
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
-// and we rescale the buffer, so we're able to resize the window
-inline void imageViewer::rescale_framebuffer(float width, float height)
+inline void imageViewer::rescaleVBO() const
 {
-    //glBindTexture(GL_TEXTURE_2D, texture_);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_, 0);
+    switch (type_) {
+        case type::stretch:
+            break;
+        case type::scale:
+            float newVertices[6 * 5];
+            if (const float windowAspectRatio = static_cast<float>(widthFB_) / static_cast<float>(heightFB_);
+                aspectRatio_ > windowAspectRatio) {
+                typeRescaleScaledA(newVertices);
+            }
+            else {
+                typeRescaleScaledB(newVertices);
+            }
 
-    glBindRenderbuffer(GL_RENDERBUFFER, RBO_);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, RBO_);
+            // remap texture coords to make image scaled
+            glBindVertexArray(VAO_);
+
+            glBindBuffer(GL_ARRAY_BUFFER, VBO_);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(newVertices), newVertices, GL_STATIC_DRAW);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
+            glEnableVertexAttribArray(0);
+
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
+            glEnableVertexAttribArray(1);
+            break;
+    }
+
+}
+
+// rescale the buffer, so we're able to resize the window
+inline void imageViewer::rescale_framebuffer(const float width, const float height)
+{
+    widthFB_ = static_cast<int>(width);
+    heightFB_ = static_cast<int>(height);
+
+    glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
+    glTexImage2D(GL_TEXTURE_2D, 0,  static_cast<GLint>(format_),
+        static_cast<GLsizei>(widthFB_),
+        static_cast<GLsizei>(heightFB_),
+        0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_, 0);
+}
+
+inline void imageViewer::changeType(const type newType)
+{
+    if (type_ == newType)
+        return;
+    type_ = newType;
+
+    float newVertices[6 * 5];
+    switch (type_) {
+        case type::stretch:
+            memcpy(newVertices, vertices_s, 6 * 5 * sizeof(float));
+            break;
+        case type::scale:
+
+            if (const float windowAspectRatio = static_cast<float>(widthFB_) / static_cast<float>(heightFB_);
+                aspectRatio_ > windowAspectRatio) {
+                typeRescaleScaledA(newVertices);
+            }
+            else {
+                typeRescaleScaledB(newVertices);
+            }
+            break;
+    }
+
+    // remap texture coords to make image scaled
+    glBindVertexArray(VAO_);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(newVertices), newVertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+}
+
+inline void imageViewer::typeRescaleScaledA(float newVertices[]) const
+{
+    const float scale = static_cast<float>(widthFB_)  / static_cast<float>(width_);
+    const float height = scale * static_cast<float>(height_);
+    for (int i = 0; i < 6; i++) {
+        newVertices[5 * i + 0] = vertices_s[5 * i + 0];
+        newVertices[5 * i + 1] = vertices_s[5 * i + 1];
+        newVertices[5 * i + 2] = vertices_s[5 * i + 2];
+        newVertices[5 * i + 3] = vertices_s[5 * i + 3];
+        newVertices[5 * i + 4] = vertices_s[5 * i + 4];
+    }
+
+    const float newY = height / static_cast<float>(heightFB_);
+    newVertices[5 * 0 + 1] =  -newY;
+    newVertices[5 * 1 + 1] =  newY;
+    newVertices[5 * 2 + 1] =  -newY;
+    newVertices[5 * 3 + 1] =  -newY;
+    newVertices[5 * 4 + 1] =  newY;
+    newVertices[5 * 5 + 1] =  newY;
+}
+
+inline void imageViewer::typeRescaleScaledB(float newVertices[]) const
+{
+    const float scale = static_cast<float>(heightFB_)  / static_cast<float>(height_);
+    const float width = scale * static_cast<float>(width_);
+    for (int i = 0; i < 6; i++) {
+        newVertices[5 * i + 0] = vertices_s[5 * i + 0];
+        newVertices[5 * i + 1] = vertices_s[5 * i + 1];
+        newVertices[5 * i + 2] = vertices_s[5 * i + 2];
+        newVertices[5 * i + 3] = vertices_s[5 * i + 3];
+        newVertices[5 * i + 4] = vertices_s[5 * i + 4];
+    }
+
+    const float newX = width / static_cast<float>(widthFB_);
+    newVertices[5 * 0 + 0] =  -newX;
+    newVertices[5 * 1 + 0] =  -newX;
+    newVertices[5 * 2 + 0] =  newX;
+    newVertices[5 * 3 + 0] =  newX;
+    newVertices[5 * 4 + 0] =  newX;
+    newVertices[5 * 5 + 0] =  -newX;
 }
 
 #endif //IMAGEVIEWER_HPP
