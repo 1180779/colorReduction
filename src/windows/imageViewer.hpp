@@ -7,7 +7,6 @@
 
 #include <memory>
 #include <tinyfiledialogs/tinyfiledialogs.h>
-#include <glad/glad.h>
 #include "image.hpp"
 
 #include "window.hpp"

@@ -34,6 +34,12 @@ public:
     // do the rendering on the displayed texture
     void render() const;
 
+    // change texture to all black
+    void clear(int width = 8, int height = 8);
+
+    // copy texture contents from other image
+    void copy(const image& other);
+
     void destroy();
     static void destroyOnce();
 
@@ -60,7 +66,7 @@ private:
         height_ = 0,
         nrChannels_ = 0;
     float aspectRatio_ = 1.0f;
-    GLenum format_ = GL_RGB;
+    GLenum format_ = GL_RGBA;
 
     GLuint texture_ = 0,
         textureDisplayed_ = 0,
@@ -108,6 +114,12 @@ inline void image::init()
 {
     // texture
     glGenTextures(1, &texture_);
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // VAO + VBO
     glGenVertexArrays(1, &VAO_);
@@ -125,6 +137,18 @@ inline void image::init()
     // FBO + textureDisplayed
     glGenFramebuffers(1, &FBO_);
     glGenTextures(1, &textureDisplayed_);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO_);
+    glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureDisplayed_, 0);
+
+    clear();
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 inline void image::display()
@@ -136,7 +160,6 @@ inline void image::display()
     // we rescale the framebuffer to the actual window size here and reset the glViewport
     rescaleFramebuffer(width, height);
     rescaleVBO();
-
 
     // we get the screen position of the window
     const ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -151,16 +174,70 @@ inline void image::display()
     );
 }
 
+inline void image::clear(int width, int height)
+{
+    width_ = width;
+    height_ = height;
+    aspectRatio_ = 1.0f;
+    nrChannels_ = 4;
+    format_ = GL_RGBA;
+
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format_), width, height, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glClearTexImage(texture_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+inline void image::copy(const image& other)
+{
+    width_ = other.width_;
+    height_ = other.height_;
+    nrChannels_ = other.nrChannels_;
+    aspectRatio_ = other.aspectRatio_;
+    format_ = other.format_;
+
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format_), width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    GLuint readFBO = 0, drawFBO = 0;
+    glGenFramebuffers(1, &readFBO);
+    glGenFramebuffers(1, &drawFBO);
+
+    // Setup READ FBO with source texture
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, readFBO);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, other.texture_, 0);
+    GLenum status = glCheckFramebufferStatus(GL_READ_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        throw std::runtime_error("Read framebuffer incomplete");
+    }
+
+    // Setup DRAW FBO with destination texture
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFBO);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, texture_, 0);
+    status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        throw std::runtime_error("Draw framebuffer incomplete");
+    }
+
+    glBlitFramebuffer(0, 0, width_, height_,
+                  0, 0, width_, height_,
+                  GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDeleteFramebuffers(1, &readFBO);
+    glDeleteFramebuffers(1, &drawFBO);
+}
+
 inline void image::render() const
 {
-    if (texture_ == 0)
-        return;
-
     // set viewport for the displayed image
     glViewport(0, 0, static_cast<GLsizei>(widthFB_), static_cast<GLsizei>(heightFB_));
     // clear before redrawing
     glBindFramebuffer(GL_FRAMEBUFFER, FBO_);
-    glClearColor(0, 0, 0, 1);
+    glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glBindTexture(GL_TEXTURE_2D, texture_);
@@ -194,7 +271,7 @@ inline void image::destroyOnce()
 
 inline void image::load(const char * path)
 {
-        // loaded image texture
+    // loaded image texture
     unsigned char* data = stbi_load(path, &width_, &height_, &nrChannels_, 0);
     aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
 
@@ -213,11 +290,6 @@ inline void image::load(const char * path)
         format_ = GL_RGBA;
 
     glBindTexture(GL_TEXTURE_2D, texture_);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
     glTexImage2D(GL_TEXTURE_2D, 0,
         static_cast<int>(format_),
         static_cast<GLsizei>(width_),
@@ -230,9 +302,6 @@ inline void image::load(const char * path)
 
     glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
     glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format_), width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureDisplayed_, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n";
@@ -277,15 +346,11 @@ inline void image::rescaleFramebuffer(float width, float height)
 {
     widthFB_ = static_cast<int>(width);
     heightFB_ = static_cast<int>(height);
-
     glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
     glTexImage2D(GL_TEXTURE_2D, 0,  static_cast<GLint>(format_),
         static_cast<GLsizei>(widthFB_),
         static_cast<GLsizei>(heightFB_),
         0, format_, GL_UNSIGNED_BYTE, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_, 0);
 }
 
 inline void image::changeType(type newType)

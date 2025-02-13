@@ -15,6 +15,7 @@
 #include "windows/window.hpp"
 #include "windows/testWindow.hpp"
 #include "windows/imageViewer.hpp"
+#include "windows/imageConverter.hpp"
 
 void deltaTime::measure()
 {
@@ -94,6 +95,8 @@ void application::run()
 #endif
     ImGui_ImplOpenGL3_Init(window.glslVersion);
 
+    // openGL error messages
+    glEnable( GL_DEBUG_OUTPUT );
 
     addWindows();
     prepareEnvironmentOnce();
@@ -161,6 +164,7 @@ void application::addWindows()
     //addWindow(std::make_unique<testWindow>(*this, "test window 1"));
     //addWindow(std::make_unique<testWindow>(*this, "test window 2"));
     addWindow(std::make_unique<imageViewer>(*this));
+    addWindow(std::make_unique<imageConverter>(*this));
 }
 
 void application::prepareEnvironment()
