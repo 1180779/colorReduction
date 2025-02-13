@@ -11,6 +11,7 @@
 #include <imGui/imgui_impl_glfw.h>
 #include <imGui/imgui_impl_opengl3.h>
 
+#include "windows/image.hpp"
 #include "windows/window.hpp"
 #include "windows/testWindow.hpp"
 #include "windows/imageViewer.hpp"
@@ -170,6 +171,9 @@ void application::prepareEnvironment()
 
 void application::prepareEnvironmentOnce()
 {
+    // prepare other classes
+    image::initOnce();
+
     // run only once for each type in the vector
     std::set<std::type_index> processedTypes = {};
     for (auto& window : windows) {
