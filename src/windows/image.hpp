@@ -14,11 +14,11 @@
 
 class image {
 public:
-    static const char * supportedFormats[5];
-    static const int supportedFormatsNum;
+    static constexpr const char * supportedFormats[] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif" };
+    static constexpr const int supportedFormatsNum = sizeof(supportedFormats) / sizeof(char *);;
 
-    static const char * types[2];
-    static const int typesNum;
+    static constexpr const char * types[2] = { "stretch", "scale" };
+    static constexpr const int typesNum = sizeof(types) / sizeof(char *);
     enum type
     {
         stretch,
@@ -46,15 +46,15 @@ public:
     void load(const char * path);
     void changeType(type newType);
 
-    void bindTexture() const { glBindTexture(GL_TEXTURE_2D, texture_); }
-    void bindImageTexture() const { glBindImageTexture(0, texture_, 0, GL_FALSE, 0, GL_WRITE_ONLY,
-        static_cast<GLenum>(internalFormat_)); }
+    void bindTexture() const;
+    void bindImageTexture(GLuint unit, GLenum access) const;
 
     [[nodiscard]] int getWidth() const { return width_; }
     [[nodiscard]] int getHeight() const { return height_; }
     [[nodiscard]] int getNrChannels() const { return nrChannels_; }
     [[nodiscard]] float getAspectRatio() const { return aspectRatio_; }
-    [[nodiscard]] GLenum getFormat() const { return format_; }
+    [[nodiscard]] constexpr GLenum getFormat() const { return GL_RGBA; }
+    [[nodiscard]] constexpr GLint getInternalFormat() const { return GL_RGBA8; }
     [[nodiscard]] GLenum getType() const { return type_; }
 
 private:
@@ -70,8 +70,8 @@ private:
         height_ = 0,
         nrChannels_ = 0;
     float aspectRatio_ = 1.0f;
-    GLenum format_ = GL_RGBA;
-    GLint internalFormat_ = GL_RGBA8;
+    static constexpr GLenum format_ = GL_RGBA;
+    static constexpr GLint internalFormat_ = GL_RGBA8;
 
     GLuint texture_ = 0,
         textureDisplayed_ = 0,
@@ -90,11 +90,6 @@ private:
 ///////////////////////////////////////////////////////////////////
 /// implementation
 //////////////////////////////////////////////////////////////////
-
-const char * image::supportedFormats[5] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif" };
-const int image::supportedFormatsNum = sizeof(supportedFormats) / sizeof(char *);
-const char * image::types[2] = { "stretch", "scale" };
-const int image::typesNum = 2;
 
 std::unique_ptr<shader> image::shader_s;
 
@@ -185,8 +180,8 @@ inline void image::clear(int width, int height)
     height_ = height;
     aspectRatio_ = 1.0f;
     nrChannels_ = 4;
-    format_ = GL_RGBA;
-    internalFormat_ = GL_RGBA8;
+    //format_ = GL_RGBA;
+    //internalFormat_ = GL_RGBA8;
 
     glBindTexture(GL_TEXTURE_2D, texture_);
     glTexImage2D(GL_TEXTURE_2D, 0, internalFormat_, width, height, 0, format_, GL_UNSIGNED_BYTE, nullptr);
@@ -200,8 +195,8 @@ inline void image::copy(const image& other)
     height_ = other.height_;
     nrChannels_ = other.nrChannels_;
     aspectRatio_ = other.aspectRatio_;
-    format_ = other.format_;
-    internalFormat_ = other.internalFormat_;
+    //format_ = other.format_;
+    //internalFormat_ = other.internalFormat_;
 
     glBindTexture(GL_TEXTURE_2D, texture_);
     glTexImage2D(GL_TEXTURE_2D, 0, internalFormat_, width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
@@ -279,45 +274,24 @@ inline void image::destroyOnce()
 inline void image::load(const char * path)
 {
     // loaded image texture
-    unsigned char* data = stbi_load(path, &width_, &height_, &nrChannels_, 0);
+    unsigned char* data = stbi_load(path, &width_, &height_, &nrChannels_, 4);
+    if (data == nullptr)
+        return;
+    nrChannels_ = 4;
     aspectRatio_ = static_cast<float>(width_) / static_cast<float>(height_);
 
     int unpackAlignment = 1;
-    if (width_ & 4 == 0 || height_ & 4 == 0) {
-        unpackAlignment = 4;
-    }
+    //if ((width_ % 4 == 0) || (height_ % 4) == 0) {
+    //    unpackAlignment = 4;
+    //}
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
-    format_ = GL_RGBA;
-    internalFormat_ = GL_RGBA8;
-    switch (nrChannels_) {
-        case 1:
-            format_ = GL_RED;
-            internalFormat_ = GL_RGB8;
-            break;
-        case 3:
-            format_ = GL_RGB;
-            internalFormat_ = GL_RGB8;
-            break;
-        case 4:
-            format_ = GL_RGBA;
-            internalFormat_ = GL_RGBA8;
-            break;
-        default:
-            break;
-    }
-    if (nrChannels_ == 1) {
-        format_ = GL_RED;
-
-    }
-    else if (nrChannels_ == 3)
-        format_ = GL_RGB;
-    else if (nrChannels_ == 4)
-        format_ = GL_RGBA;
+    //format_ = GL_RGBA;
+    //internalFormat_ = GL_RGBA8;
 
     glBindTexture(GL_TEXTURE_2D, texture_);
     glTexImage2D(GL_TEXTURE_2D, 0,
-        static_cast<int>(format_),
+        internalFormat_,
         static_cast<GLsizei>(width_),
         static_cast<GLsizei>(height_), 0, format_, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
@@ -327,7 +301,9 @@ inline void image::load(const char * path)
     glBindFramebuffer(GL_FRAMEBUFFER, FBO_);
 
     glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
-    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat_, width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat_,
+        static_cast<GLsizei>(width_),
+        static_cast<GLsizei>(height_), 0, format_, GL_UNSIGNED_BYTE, nullptr);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n";
@@ -413,6 +389,16 @@ inline void image::changeType(type newType)
 
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void *>(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+}
+
+inline void image::bindTexture() const
+{
+    glBindTexture(GL_TEXTURE_2D, texture_);
+}
+
+inline void image::bindImageTexture(GLuint unit, GLenum access) const
+{
+    glBindImageTexture(unit, texture_, 0, GL_FALSE, 0, access, static_cast<GLenum>(internalFormat_));
 }
 
 inline void image::typeRescaleScaledA(float newVertices[]) const

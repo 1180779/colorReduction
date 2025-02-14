@@ -5,11 +5,16 @@
 #ifndef DEBUG_HPP
 #define DEBUG_HPP
 
+#include <iostream>
+#include <ios>
+
 #define glXCheckError()   \
     do { \
-        GLenum err; \
-        while((err = glGetError()) != GL_NO_ERROR) { \
-            fprintf(stderr, "error %04X, FILE: %s, LINE: %d\n", err, __FILE__, __LINE__); \
+        GLenum err = glGetError(); \
+        while(err != GL_NO_ERROR) { \
+            std::cerr << "error: " << std::hex << err << std::dec << ", "; \
+            std::cerr << "FILE: " << __FILE__ << ", LINE: " << static_cast<int>(__LINE__) << std::endl; \
+            err = glGetError(); \
         } \
     } while(0)
 

@@ -5,9 +5,11 @@
 #ifndef IMAGECONVERTER_HPP
 #define IMAGECONVERTER_HPP
 
-#include "../debug.hpp"
+#include <map>
 #include <memory>
 #include <tinyfiledialogs/tinyfiledialogs.h>
+
+#include "../debug.hpp"
 #include "window.hpp"
 #include "image.hpp"
 #include "computeShader.hpp"
@@ -49,7 +51,7 @@ std::unique_ptr<computeShader> imageConverter::computeShader_s;
 
 inline void imageConverter::prepareEnvironmentOnce()
 {
-    computeShader_s = std::make_unique<computeShader>("sh.comp");
+    computeShader_s = std::make_unique<computeShader>("GL_RGBA8.comp");
 }
 
 inline void imageConverter::prepareEnvironment()
@@ -88,14 +90,31 @@ inline void imageConverter::ui()
         glXCheckError();
         // TODO add convertion
         imgConverted.copy(imgSource);
-        computeShader_s->use();
-        //imgConverted.bindTexture();
-        imgConverted.bindImageTexture();
-
         glXCheckError();
-        glDispatchCompute(imgSource.getWidth(), imgSource.getHeight(), 1);
+        computeShader_s->use();
+        glXCheckError();
+        imgSource.bindImageTexture(0, GL_READ_ONLY);
+        glXCheckError();
+        imgConverted.bindImageTexture(1, GL_WRITE_ONLY);
+        glXCheckError();
+
+        computeShader_s->set1i("height", imgSource.getHeight());
+        glXCheckError();
+        computeShader_s->set1i("width", imgSource.getWidth());
+        glXCheckError();
+        computeShader_s->setMatrix4fv(0, glm::mat4(1.0f));
+        glXCheckError();
+        computeShader_s->set3f(1, 0.0f, 0.0f, 1.0f);
+        glXCheckError();
+
+        glDispatchCompute(
+            static_cast<GLuint>(imgSource.getWidth()),
+            static_cast<GLuint>(imgSource.getHeight()),
+            1);
         // make sure writing to image has finished before read
+        glXCheckError();
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glXCheckError();
 
         glBindTexture(GL_TEXTURE_2D, 0);
         glXCheckError();

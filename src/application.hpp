@@ -59,7 +59,7 @@ public:
     void cleanEnvironment();
 
     appData window;
-    deltaTime deltaTime;
+    deltaTime dt;
 };
 
 #endif

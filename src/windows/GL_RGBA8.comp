@@ -1,0 +1,23 @@
+#version 430 core
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(rgba8, binding = 0) readonly uniform image2D imgInput;
+layout(rgba8, binding = 1) writeonly uniform image2D imgOutput;
+
+uniform int width;
+uniform int height;
+layout(location=0) uniform mat4 m;
+layout(location=1) uniform vec3 color;
+
+void main() {
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+
+    vec4 value = imageLoad(imgInput, texelCoord);
+
+    // do stuff with read data
+    value = vec4(color, 1.0);
+    value = value * m[texelCoord.x % 4][texelCoord.y % 4];
+
+    imageStore(imgOutput, texelCoord, value);
+}

@@ -5,6 +5,8 @@
 #include "computeShader.hpp"
 #include <iostream>
 #include <fstream>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "shader.hpp"
 
@@ -40,6 +42,41 @@ computeShader::~computeShader()
 void computeShader::use() const
 {
     glUseProgram(program_);
+}
+
+void computeShader::setb(GLint location, bool b) const
+{
+    glUniform1i(location, static_cast<int>(b));
+}
+
+void computeShader::set1i(const std::string& name, GLint v) const
+{
+    glUniform1i(glGetUniformLocation(program_, name.c_str()), v);
+}
+
+void computeShader::set1f(GLint location, GLfloat v) const
+{
+    glUniform1f(location, v);
+}
+
+void computeShader::set3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2) const
+{
+    glUniform3f(location, v0, v1, v2);
+}
+
+void computeShader::set3f(GLint location, const glm::vec3& v) const
+{
+    glUniform3f(location, v.x, v.y, v.z);
+}
+
+void computeShader::set4f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3) const
+{
+    glUniform4f(location, v0, v1, v2, v3);
+}
+
+void computeShader::setMatrix4fv(GLint location, const glm::mat4& trans) const
+{
+    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(trans));
 }
 
 GLuint compileShader(const char* source, GLenum shaderType) {

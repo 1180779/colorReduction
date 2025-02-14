@@ -19,13 +19,13 @@ public:
 
     void use() const;
 
-    /*void setb(const std::string& name, bool v) const;
-    void set1i(const std::string& name, int v) const;
-    void set1f(const std::string& name, float v) const;
-    void set3f(const std::string& name, float v0, float v1, float v2) const;
-    void set3f(const std::string& name, const glm::vec3& v) const;
-    void set4f(const std::string& name, float v0, float v1, float v2, float v3) const;
-    void setMatrix4fv(const std::string& name, const glm::mat4& trans) const;*/
+    void setb(GLint location, bool v) const;
+    void set1i(const std::string& name, GLint v) const;
+    void set1f(GLint location, GLfloat v) const;
+    void set3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2) const;
+    void set3f(GLint location, const glm::vec3& v) const;
+    void set4f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3) const;
+    void setMatrix4fv(GLint location, const glm::mat4& trans) const;
 
 private:
     GLuint program_;

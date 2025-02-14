@@ -11,6 +11,8 @@
 #include <imGui/imgui_impl_glfw.h>
 #include <imGui/imgui_impl_opengl3.h>
 
+#include "debug.hpp"
+
 #include "windows/image.hpp"
 #include "windows/window.hpp"
 #include "windows/testWindow.hpp"
@@ -106,7 +108,7 @@ void application::run()
     while(!glfwWindowShouldClose(window.handle))
     {
         /* delta time */
-        deltaTime.measure();
+        dt.measure();
 
         /* handle current view inputs and other events */
         handleInput();
@@ -116,8 +118,7 @@ void application::run()
             ImGui_ImplGlfw_Sleep(10);
             continue;
         }
-
-        update(deltaTime());
+        update(dt());
 
         /* imGui new frame + view ui */
         ImGui_ImplOpenGL3_NewFrame();
