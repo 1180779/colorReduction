@@ -29,3 +29,8 @@ add_custom_command(
         ${CMAKE_SOURCE_DIR}/src/windows/sh.frag
         ${CMAKE_CURRENT_BINARY_DIR}/sh.frag)
 
+add_custom_command(
+        TARGET colorReduction POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/src/windows/sh.comp
+        ${CMAKE_CURRENT_BINARY_DIR}/sh.comp)

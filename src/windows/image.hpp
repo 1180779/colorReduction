@@ -46,6 +46,10 @@ public:
     void load(const char * path);
     void changeType(type newType);
 
+    void bindTexture() const { glBindTexture(GL_TEXTURE_2D, texture_); }
+    void bindImageTexture() const { glBindImageTexture(0, texture_, 0, GL_FALSE, 0, GL_WRITE_ONLY,
+        static_cast<GLenum>(internalFormat_)); }
+
     [[nodiscard]] int getWidth() const { return width_; }
     [[nodiscard]] int getHeight() const { return height_; }
     [[nodiscard]] int getNrChannels() const { return nrChannels_; }
@@ -67,6 +71,7 @@ private:
         nrChannels_ = 0;
     float aspectRatio_ = 1.0f;
     GLenum format_ = GL_RGBA;
+    GLint internalFormat_ = GL_RGBA8;
 
     GLuint texture_ = 0,
         textureDisplayed_ = 0,
@@ -181,9 +186,10 @@ inline void image::clear(int width, int height)
     aspectRatio_ = 1.0f;
     nrChannels_ = 4;
     format_ = GL_RGBA;
+    internalFormat_ = GL_RGBA8;
 
     glBindTexture(GL_TEXTURE_2D, texture_);
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format_), width, height, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat_, width, height, 0, format_, GL_UNSIGNED_BYTE, nullptr);
     glClearTexImage(texture_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -195,9 +201,10 @@ inline void image::copy(const image& other)
     nrChannels_ = other.nrChannels_;
     aspectRatio_ = other.aspectRatio_;
     format_ = other.format_;
+    internalFormat_ = other.internalFormat_;
 
     glBindTexture(GL_TEXTURE_2D, texture_);
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format_), width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat_, width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     GLuint readFBO = 0, drawFBO = 0;
@@ -281,9 +288,28 @@ inline void image::load(const char * path)
     }
     glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
 
-    format_ = GL_RGB;
-    if (nrChannels_ == 1)
+    format_ = GL_RGBA;
+    internalFormat_ = GL_RGBA8;
+    switch (nrChannels_) {
+        case 1:
+            format_ = GL_RED;
+            internalFormat_ = GL_RGB8;
+            break;
+        case 3:
+            format_ = GL_RGB;
+            internalFormat_ = GL_RGB8;
+            break;
+        case 4:
+            format_ = GL_RGBA;
+            internalFormat_ = GL_RGBA8;
+            break;
+        default:
+            break;
+    }
+    if (nrChannels_ == 1) {
         format_ = GL_RED;
+
+    }
     else if (nrChannels_ == 3)
         format_ = GL_RGB;
     else if (nrChannels_ == 4)
@@ -301,7 +327,7 @@ inline void image::load(const char * path)
     glBindFramebuffer(GL_FRAMEBUFFER, FBO_);
 
     glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
-    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format_), width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
+    glTexImage2D(GL_TEXTURE_2D, 0, internalFormat_, width_, height_, 0, format_, GL_UNSIGNED_BYTE, nullptr);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n";
@@ -347,7 +373,7 @@ inline void image::rescaleFramebuffer(float width, float height)
     widthFB_ = static_cast<int>(width);
     heightFB_ = static_cast<int>(height);
     glBindTexture(GL_TEXTURE_2D, textureDisplayed_);
-    glTexImage2D(GL_TEXTURE_2D, 0,  static_cast<GLint>(format_),
+    glTexImage2D(GL_TEXTURE_2D, 0,  internalFormat_,
         static_cast<GLsizei>(widthFB_),
         static_cast<GLsizei>(heightFB_),
         0, format_, GL_UNSIGNED_BYTE, nullptr);

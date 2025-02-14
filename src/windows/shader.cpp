@@ -6,8 +6,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-GLuint compileShader(const char* source, GLenum shaderType);
-GLuint linkProgram(
+static GLuint compileShader(const char* source, GLenum shaderType);
+static GLuint linkProgram(
     GLuint vertexShader,
     GLuint fragmentShader);
 
@@ -16,9 +16,11 @@ shader::shader(
     const char* fragmentShaderC,
     bool fromFile)
 {
+    GLuint vertexShader;
+    GLuint fragmentShader;
     if (!fromFile) {
-        vertexShader_ = ::compileShader(vertexShaderC, GL_VERTEX_SHADER);
-        fragmentShader_ = ::compileShader(fragmentShaderC, GL_FRAGMENT_SHADER);
+        vertexShader = ::compileShader(vertexShaderC, GL_VERTEX_SHADER);
+        fragmentShader = ::compileShader(fragmentShaderC, GL_FRAGMENT_SHADER);
     }
     else {
         // read from file first
@@ -32,16 +34,16 @@ shader::shader(
                  std::istreambuf_iterator<char>());
         fragmentShaderC = fStr.c_str();
 
-        vertexShader_ = ::compileShader(vertexShaderC, GL_VERTEX_SHADER);
-        fragmentShader_ = ::compileShader(fragmentShaderC, GL_FRAGMENT_SHADER);
+        vertexShader = ::compileShader(vertexShaderC, GL_VERTEX_SHADER);
+        fragmentShader = ::compileShader(fragmentShaderC, GL_FRAGMENT_SHADER);
     }
 
     program_ = ::linkProgram(
-        vertexShader_,
-        fragmentShader_);
+        vertexShader,
+        fragmentShader);
 
-    glDeleteShader(vertexShader_);
-    glDeleteShader(fragmentShader_);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
 }
 
 shader::~shader()
@@ -89,9 +91,6 @@ void shader::setMatrix4fv(const std::string& name, const glm::mat4& trans) const
 {
     glUniformMatrix4fv(glGetUniformLocation(program_, name.c_str()), 1, GL_FALSE, glm::value_ptr(trans));
 }
-
-// ------------------------------------------------
-// implementation
 
 GLuint compileShader(const char* source, GLenum shaderType) {
     GLuint shader = glCreateShader(shaderType);

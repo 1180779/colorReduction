@@ -5,9 +5,12 @@
 #ifndef IMAGECONVERTER_HPP
 #define IMAGECONVERTER_HPP
 
+#include "../debug.hpp"
+#include <memory>
 #include <tinyfiledialogs/tinyfiledialogs.h>
 #include "window.hpp"
 #include "image.hpp"
+#include "computeShader.hpp"
 
 class application;
 class imageConverter : public window<application> {
@@ -26,19 +29,28 @@ public:
     void cleanEnvironment() override;
     void cleanEnvironmentOnce() override;
 
+
     const char * filename = nullptr;
     int selectedType = 0;
     image imgSource;
     image imgConverted;
+
+private:
+    static std::unique_ptr<computeShader> computeShader_s;
 };
 
-///////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
 /// implementation
 //////////////////////////////////////////////////////////////////
 
 #include "../application.hpp"
 
-inline void imageConverter::prepareEnvironmentOnce() { }
+std::unique_ptr<computeShader> imageConverter::computeShader_s;
+
+inline void imageConverter::prepareEnvironmentOnce()
+{
+    computeShader_s = std::make_unique<computeShader>("sh.comp");
+}
 
 inline void imageConverter::prepareEnvironment()
 {
@@ -73,8 +85,20 @@ inline void imageConverter::ui()
     }
 
     if (ImGui::Button("Convert")) {
+        glXCheckError();
         // TODO add convertion
         imgConverted.copy(imgSource);
+        computeShader_s->use();
+        //imgConverted.bindTexture();
+        imgConverted.bindImageTexture();
+
+        glXCheckError();
+        glDispatchCompute(imgSource.getWidth(), imgSource.getHeight(), 1);
+        // make sure writing to image has finished before read
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glXCheckError();
         //imgSource.copy(imgConverted);
     }
 
@@ -102,6 +126,9 @@ inline void imageConverter::cleanEnvironment()
     imgConverted.destroy();
 }
 
-inline void imageConverter::cleanEnvironmentOnce() { }
+inline void imageConverter::cleanEnvironmentOnce()
+{
+    computeShader_s.reset();
+}
 
 #endif //IMAGECONVERTER_HPP
