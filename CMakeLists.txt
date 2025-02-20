@@ -11,13 +11,24 @@ file(GLOB_RECURSE SOURCE
         src/*.hpp src/*.h
         src/*.cpp src/*.c)
 
-add_executable(colorReduction ${SOURCE})
+add_executable(colorReduction ${SOURCE}
+        src/windows/conMatSSBO.hpp
+        src/windows/shaderBase.hpp)
 
 add_subdirectory(deps)
 
-find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+if (UNIX)
+    find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+    target_link_libraries(colorReduction OpenGL glfw glad imGui stb tinyfiledialogs glm)
+endif (UNIX)
 
-target_link_libraries(colorReduction OpenGL glfw glad imGui stb tinyfiledialogs glm)
+if (WIN32)
+    target_link_libraries(colorReduction opengl32 glfw glad imGui stb tinyfiledialogs glm)
+endif (WIN32)
+
+
+
+
 
 add_custom_command(
         TARGET colorReduction POST_BUILD

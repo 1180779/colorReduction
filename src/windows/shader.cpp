@@ -56,42 +56,6 @@ void shader::use() const
     glUseProgram(program_);
 }
 
-void shader::setb(const std::string& name, bool b) const
-{
-    glUniform1i(glGetUniformLocation(program_, name.c_str()),
-        static_cast<int>(b));
-}
-
-void shader::set1i(const std::string& name, int v) const
-{
-    glUniform1i(glGetUniformLocation(program_, name.c_str()), v);
-}
-
-void shader::set1f(const std::string& name, float v) const
-{
-    glUniform1f(glGetUniformLocation(program_, name.c_str()), v);
-}
-
-void shader::set3f(const std::string& name, float v0, float v1, float v2) const
-{
-    glUniform3f(glGetUniformLocation(program_, name.c_str()), v0, v1, v2);
-}
-
-void shader::set3f(const std::string& name, const glm::vec3& v) const
-{
-    glUniform3f(glGetUniformLocation(program_, name.c_str()), v.x, v.y, v.z);
-}
-
-void shader::set4f(const std::string& name, float v0, float v1, float v2, float v3) const
-{
-    glUniform4f(glGetUniformLocation(program_, name.c_str()), v0, v1, v2, v3);
-}
-
-void shader::setMatrix4fv(const std::string& name, const glm::mat4& trans) const
-{
-    glUniformMatrix4fv(glGetUniformLocation(program_, name.c_str()), 1, GL_FALSE, glm::value_ptr(trans));
-}
-
 GLuint compileShader(const char* source, GLenum shaderType) {
     GLuint shader = glCreateShader(shaderType);
     glShaderSource(shader, 1, &source, nullptr);

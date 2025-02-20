@@ -124,7 +124,9 @@ void application::run()
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+        glXCheckError();
         ui();
+        glXCheckError();
 
         /* clear etc. */
         ImGui::Render();
@@ -138,7 +140,9 @@ void application::run()
         //glClear(GL_DEPTH_BUFFER_BIT);
 
         /* render etc */
+        glXCheckError();
         render();
+        glXCheckError();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window.handle);
     }

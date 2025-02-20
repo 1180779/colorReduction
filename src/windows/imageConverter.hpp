@@ -13,6 +13,7 @@
 #include "window.hpp"
 #include "image.hpp"
 #include "computeShader.hpp"
+#include "conMatSSBO.hpp"
 
 class application;
 class imageConverter : public window<application> {
@@ -31,11 +32,12 @@ public:
     void cleanEnvironment() override;
     void cleanEnvironmentOnce() override;
 
-
     const char * filename = nullptr;
     int selectedType = 0;
     image imgSource;
     image imgConverted;
+
+    conMatSSBO conMatSSBO = {};
 
 private:
     static std::unique_ptr<computeShader> computeShader_s;
@@ -58,10 +60,12 @@ inline void imageConverter::prepareEnvironment()
 {
     imgSource.init();
     imgConverted.init();
+    conMatSSBO.init();
 }
 
 inline void imageConverter::ui()
 {
+    glXCheckError();
     ImGui::Begin("Image Converter");
     if (ImGui::Button("clear")) {
         imgSource.clear();
@@ -87,8 +91,16 @@ inline void imageConverter::ui()
     }
 
     if (ImGui::Button("Convert")) {
+        static float data[] = {
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+        };
         glXCheckError();
-        // TODO add convertion
+        conMatSSBO.set(1, 2, data);
+        glXCheckError();
+
         imgConverted.copy(imgSource);
         glXCheckError();
         computeShader_s->use();
@@ -98,13 +110,11 @@ inline void imageConverter::ui()
         imgConverted.bindImageTexture(1, GL_WRITE_ONLY);
         glXCheckError();
 
-        computeShader_s->set1i("height", imgSource.getHeight());
+        conMatSSBO.use(*computeShader_s, 0, 1);
         glXCheckError();
-        computeShader_s->set1i("width", imgSource.getWidth());
+        computeShader_s->setl1i(2, imgSource.getHeight());
         glXCheckError();
-        computeShader_s->setMatrix4fv(0, glm::mat4(1.0f));
-        glXCheckError();
-        computeShader_s->set3f(1, 0.0f, 0.0f, 1.0f);
+        computeShader_s->setl1i(3, imgSource.getWidth());
         glXCheckError();
 
         glDispatchCompute(
@@ -127,6 +137,7 @@ inline void imageConverter::ui()
     imgConverted.display();
 
     ImGui::End();
+    glXCheckError();
 }
 
 inline void imageConverter::handleInput() { }
@@ -143,6 +154,7 @@ inline void imageConverter::cleanEnvironment()
 {
     imgSource.destroy();
     imgConverted.destroy();
+    conMatSSBO.destroy();
 }
 
 inline void imageConverter::cleanEnvironmentOnce()
