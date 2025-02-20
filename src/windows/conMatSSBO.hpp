@@ -5,12 +5,12 @@
 #ifndef CONMATSSBO_HPP
 #define CONMATSSBO_HPP
 
-#include <cstring>
-#include <vector>
 #include <glad/glad.h>
 
 #include "computeShader.hpp"
+#include "mat.hpp"
 #include "../debug.hpp"
+
 
 /* convolution matrix with SSBO */
 
@@ -27,8 +27,7 @@ public:
     static void unbindBuffer();
 
     GLuint SSBO;
-    int n = 0, m = 0; /* matrix dimentions */
-    std::vector<float> mat = {}; /* matrix data */
+    mat mat;
 };
 
 //////////////////////////////////////////////////////////////////
@@ -40,14 +39,11 @@ inline void conMatSSBO::init() {
 }
 
 inline void conMatSSBO::set(int n, int m, float* data) {
-    this->n = n;
-    this->m = m;
-    mat.resize(n * m);
-    memcpy(mat.data(), data, n * m * sizeof(float));
+    mat.set(n, m, data);
     bindBuffer();
     glBufferData(GL_SHADER_STORAGE_BUFFER,
         static_cast<GLsizeiptr>(n * m * sizeof(float)),
-        mat.data(),
+        mat.getData(),
         GL_STATIC_DRAW);
     glXCheckError();
 }
@@ -62,8 +58,8 @@ inline void conMatSSBO::bindBuffer() const {
 
 inline void conMatSSBO::use(const computeShader& sh, int layoutN, int layoutM) const {
     bindBuffer();
-    sh.setl1i(layoutN, n);
-    sh.setl1i(layoutM, m);
+    sh.setl1i(layoutN, mat.getN());
+    sh.setl1i(layoutM, mat.getM());
 }
 
 inline void conMatSSBO::unbindBuffer() {
