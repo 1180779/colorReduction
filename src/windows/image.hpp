@@ -8,6 +8,7 @@
 #include <glad/glad.h>
 #include <imGui/imgui.h>
 #include <stb/stb_image.h>
+#include <stb/stb_image_write.h>
 
 #include <memory>
 #include "shader.hpp"
@@ -44,6 +45,7 @@ public:
     static void destroyOnce();
 
     void load(const char * path);
+    void writePng(const char * path) const;
     void changeType(type newType);
 
     void bindTexture() const;
@@ -313,6 +315,17 @@ inline void image::load(const char * path)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
+}
+
+inline void image::writePng(const char *path) const {
+    std::vector<unsigned char> data(width_ * height_ * nrChannels_);
+
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glGetTexImage(GL_TEXTURE_2D, 0, format_, GL_UNSIGNED_BYTE, data.data());
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    stbi_flip_vertically_on_write(1);
+    stbi_write_png(path, width_, height_, nrChannels_, data.data(), width_ * nrChannels_);
 }
 
 inline void image::rescaleVBO() const

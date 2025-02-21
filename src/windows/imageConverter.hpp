@@ -33,7 +33,7 @@ public:
     void cleanEnvironment() override;
     void cleanEnvironmentOnce() override;
 
-    const char * filename = nullptr;
+    std::string filename;
     int selectedType = 0;
     image imgSource;
     image imgConverted;
@@ -68,7 +68,7 @@ inline void imageConverter::ui()
 {
     glXCheckError();
     ImGui::Begin("Image Converter");
-    ImGui::Columns(5);
+    ImGui::Columns(6);
     if (ImGui::Button("clear")) {
         imgSource.clear();
         imgConverted.clear();
@@ -80,14 +80,15 @@ inline void imageConverter::ui()
     }
     ImGui::NextColumn();
     if (ImGui::Button("select")) {
-        filename = tinyfd_openFileDialog("Select image",
+        const char * path = tinyfd_openFileDialog("Select image",
             "",
             image::supportedFormatsNum,
             image::supportedFormats,
             "",
             0);
-        if (filename != nullptr)
-            imgSource.load(filename);
+        filename = path != nullptr ? std::string(path) : std::string("");
+        if (!filename.empty())
+            imgSource.load(filename.c_str());
     }
     ImGui::NextColumn();
     if (ImGui::Combo("type", &selectedType, image::types, image::typesNum)) {
@@ -130,9 +131,15 @@ inline void imageConverter::ui()
         glXCheckError();
         //imgSource.copy(imgConverted);
     }
+    ImGui::NextColumn();
+    if (ImGui::Button("save")) {
+        const char * formats[] = { "*.png" };
+        const char* path = tinyfd_saveFileDialog("save result", "converted", 1, formats, "");
+        imgConverted.writePng(path);
+    }
 
     ImGui::Columns(1);
-    ImGui::Text((std::string("Selected image: ") + (filename != nullptr ? filename : "<none>")).c_str());
+    ImGui::Text((std::string("Selected image: ") + (filename.empty() ? "<none>" : filename)).c_str());
 
     ImGui::Columns(2);
     imgSource.display();
