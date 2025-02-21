@@ -19,6 +19,10 @@ public:
     [[nodiscard]] const float* getData() const { return data.data(); }
     float* getData() { return data.data(); }
 
+    void clear();
+    float getSum() const;
+    void normalize();
+
     void addEmptyRow();
     void addEmptyColumn();
 
@@ -41,14 +45,16 @@ private:
 /// implementation
 //////////////////////////////////////////////////////////////////
 
-inline void mat::set(int n, int m, float *data) {
+inline void mat::set(int n, int m, float *data)
+{
     this->n = n;
     this->m = m;
     this->data.resize(n * m);
     memcpy(this->data.data(), data, n * m * sizeof(float));
 }
 
-inline bool mat::emptyColumn(int k) {
+inline bool mat::emptyColumn(int k)
+{
     if (k < 0 || k >= m)
         return false;
     for (int i = k; i < n * m; i += m) {
@@ -72,13 +78,37 @@ inline void mat::resize(int n, int m)
     memset(this->data.data(), 0, n * m * sizeof(float));
 }
 
-inline void mat::addEmptyRow() {
+inline void mat::clear()
+{
+    memset(data.data(), 0, n * m * sizeof(float));
+}
+
+inline float mat::getSum() const
+{
+    float sum = 0.0f;
+    for (auto item : data)
+        sum += item;
+    return sum;
+}
+
+inline void mat::normalize()
+{
+    float sum = getSum();
+    if (sum == 0.0f)
+        return;
+    for (auto& item : data)
+        item /= sum;
+}
+
+inline void mat::addEmptyRow()
+{
     data.resize((n + 1) * m);
     memset(data.data() + n * m, 0, m * sizeof(float));
     ++n;
 }
 
-inline void mat::addEmptyColumn() {
+inline void mat::addEmptyColumn()
+{
     data.resize(n * (m + 1));
     memset(data.data() + n * m, 0, n * sizeof(float));
     for (int i = n - 1; i >= 0; --i) {
@@ -88,14 +118,16 @@ inline void mat::addEmptyColumn() {
     ++m;
 }
 
-inline void mat::removeLastRow() {
+inline void mat::removeLastRow()
+{
     if (n == 1)
         return;
     data.resize((n - 1) * m);
     --n;
 }
 
-inline void mat::removeLastColumn() {
+inline void mat::removeLastColumn()
+{
     if (m == 1)
         return;
     for (int i = 0; i < n; ++i) {
@@ -105,7 +137,8 @@ inline void mat::removeLastColumn() {
     --m;
 }
 
-inline bool mat::emptyRow(int k) {
+inline bool mat::emptyRow(int k)
+{
     if (k < 0 || k >= n)
         return false;
     for (int i = k * n; i < k * (n + 1); ++i) {

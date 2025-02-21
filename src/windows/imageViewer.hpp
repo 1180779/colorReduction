@@ -91,6 +91,7 @@ inline void imageViewer::update(float dt) { }
 inline void imageViewer::render()
 {
     img.render();
+    glXCheckError();
 }
 
 inline void imageViewer::cleanEnvironmentOnce() { }
