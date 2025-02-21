@@ -14,8 +14,9 @@ file(GLOB_RECURSE SOURCE
 add_executable(colorReduction ${SOURCE}
         src/windows/conMatSSBO.hpp
         src/windows/shaderBase.hpp
-        src/windows/matProviderWindow.hpp
-        src/windows/mat.hpp)
+        src/windows/matProviderPopup.hpp
+        src/windows/mat.hpp
+        src/windows/popupBase.hpp)
 
 add_subdirectory(deps)
 

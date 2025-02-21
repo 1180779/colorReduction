@@ -14,6 +14,7 @@
 #include "image.hpp"
 #include "computeShader.hpp"
 #include "conMatSSBO.hpp"
+#include "matProviderPopup.hpp"
 
 class application;
 class imageConverter : public window<application> {
@@ -38,7 +39,7 @@ public:
     image imgConverted;
 
     conMatSSBO conMatSSBO = {};
-
+    matProviderPopup matProviderPopup;
 private:
     static std::unique_ptr<computeShader> computeShader_s;
 };
@@ -67,11 +68,17 @@ inline void imageConverter::ui()
 {
     glXCheckError();
     ImGui::Begin("Image Converter");
+    ImGui::Columns(5);
     if (ImGui::Button("clear")) {
         imgSource.clear();
         imgConverted.clear();
     }
 
+    ImGui::NextColumn();
+    if (ImGui::Button("set matrix")) {
+        matProviderPopup.schedule();
+    }
+    ImGui::NextColumn();
     if (ImGui::Button("select")) {
         filename = tinyfd_openFileDialog("Select image",
             "",
@@ -82,23 +89,16 @@ inline void imageConverter::ui()
         if (filename != nullptr)
             imgSource.load(filename);
     }
-    ImGui::Text((std::string("Selected image: ") + (filename != nullptr ? filename : "<none>")).c_str());
-
+    ImGui::NextColumn();
     if (ImGui::Combo("type", &selectedType, image::types, image::typesNum)) {
         auto t = static_cast<image::type>(selectedType);
         imgSource.changeType(t);
         imgConverted.changeType(t);
     }
-
+    ImGui::NextColumn();
     if (ImGui::Button("Convert")) {
-        static float data[] = {
-            1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0,
-            0, 0, 0, 1
-        };
         glXCheckError();
-        conMatSSBO.set(1, 2, data);
+        conMatSSBO.set(conMatSSBO.mat.getN(), conMatSSBO.mat.getM(), conMatSSBO.mat.getData());
         glXCheckError();
 
         imgConverted.copy(imgSource);
@@ -110,11 +110,11 @@ inline void imageConverter::ui()
         imgConverted.bindImageTexture(1, GL_WRITE_ONLY);
         glXCheckError();
 
-        conMatSSBO.use(*computeShader_s, 0, 1);
+        conMatSSBO.use(*computeShader_s, 0, 2);
         glXCheckError();
-        computeShader_s->setl1i(2, imgSource.getHeight());
+        computeShader_s->setl1i(4, imgSource.getHeight());
         glXCheckError();
-        computeShader_s->setl1i(3, imgSource.getWidth());
+        computeShader_s->setl1i(5, imgSource.getWidth());
         glXCheckError();
 
         glDispatchCompute(
@@ -131,6 +131,9 @@ inline void imageConverter::ui()
         //imgSource.copy(imgConverted);
     }
 
+    ImGui::Columns(1);
+    ImGui::Text((std::string("Selected image: ") + (filename != nullptr ? filename : "<none>")).c_str());
+
     ImGui::Columns(2);
     imgSource.display();
     ImGui::NextColumn();
@@ -138,6 +141,9 @@ inline void imageConverter::ui()
 
     ImGui::End();
     glXCheckError();
+
+    /* show the popup if need be */
+    matProviderPopup.show(conMatSSBO.mat);
 }
 
 inline void imageConverter::handleInput() { }

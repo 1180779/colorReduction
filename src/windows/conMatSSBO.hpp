@@ -59,7 +59,9 @@ inline void conMatSSBO::bindBuffer() const {
 inline void conMatSSBO::use(const computeShader& sh, int layoutN, int layoutM) const {
     bindBuffer();
     sh.setl1i(layoutN, mat.getN());
+    sh.setl1i(layoutN + 1, mat.getN() / 2);
     sh.setl1i(layoutM, mat.getM());
+    sh.setl1i(layoutM + 1, mat.getM() / 2);
 }
 
 inline void conMatSSBO::unbindBuffer() {
