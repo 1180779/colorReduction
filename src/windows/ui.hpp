@@ -12,9 +12,36 @@
 namespace ui {
     static constexpr int buttonHeight = 25;
 
-    inline bool ButtonFill(const char* label) {
+    inline void SeparatorWithSpacing()
+    {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+    }
+
+    inline bool ButtonFillSpanXRows(const char* label, float numberOfRows, float spanRows, float rowHeight)
+    {
+        ImVec2 regionSize;
+        float rowSpacing = ImGui::GetStyle().ItemSpacing.y;
+        regionSize.y = (spanRows / numberOfRows) *
+            (rowHeight * numberOfRows + rowSpacing * (numberOfRows - 1.0f));
+        regionSize.x = buttonHeight;
+        return ImGui::Button(label, regionSize);
+    }
+
+    inline bool ButtonFill(const char* label)
+    {
         // fill whole available space with button
         ImVec2 regionSize = ImGui::GetContentRegionAvail();
+        regionSize.y = buttonHeight;
+        return ImGui::Button(label, regionSize);
+    }
+
+    inline bool ButtonFillY(const char* label)
+    {
+        // fill whole available space with button
+        ImVec2 regionSize = ImGui::GetContentRegionAvail();
+        regionSize.x = buttonHeight;
         regionSize.y = buttonHeight;
         return ImGui::Button(label, regionSize);
     }

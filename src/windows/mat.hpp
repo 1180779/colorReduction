@@ -10,7 +10,9 @@
 
 class mat {
 public:
+    mat(int n, int m, float* data);
     mat() = default;
+
 
     void set(int n, int m, float *data);
 
@@ -20,7 +22,7 @@ public:
     float* getData() { return data.data(); }
 
     void clear();
-    float getSum() const;
+    [[nodiscard]] float getSum() const;
     void normalize();
 
     void addEmptyRow();
@@ -44,6 +46,11 @@ private:
 //////////////////////////////////////////////////////////////////
 /// implementation
 //////////////////////////////////////////////////////////////////
+
+inline mat::mat(int n, int m, float *data) : n(n), m(m), data(n * m)
+{
+    memcpy(this->data.data(), data, n * m * sizeof(float));
+}
 
 inline void mat::set(int n, int m, float *data)
 {
