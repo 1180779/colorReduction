@@ -20,6 +20,8 @@ add_executable(colorReduction ${SOURCE}
 
 add_subdirectory(deps)
 
+target_link_options(colorReduction PRIVATE --static)
+
 if (UNIX)
     find_package(OpenGL REQUIRED COMPONENTS OpenGL)
     target_link_libraries(colorReduction OpenGL glfw glad imGui stb tinyfiledialogs glm)
@@ -50,3 +52,9 @@ add_custom_command(
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/src/windows/GL_RGBA8.comp
         ${CMAKE_CURRENT_BINARY_DIR}/GL_RGBA8.comp)
+
+add_custom_command(
+        TARGET colorReduction POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/src/windows/invert.comp
+        ${CMAKE_CURRENT_BINARY_DIR}/invert.comp)

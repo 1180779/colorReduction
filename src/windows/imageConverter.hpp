@@ -42,12 +42,15 @@ public:
     matProviderPopup matProviderPopup;
 private:
     static std::unique_ptr<computeShader> computeShader_s;
+    static std::unique_ptr<computeShader> computeShaderInvert_s;
 
     void uiButtons();
     void uiButtonClear();
     void uiButtonSetMatrix();
     void uiButtonSelectImage();
     void uiButtonConvertImage();
+    void uiButtonInvertImage();
+    void uiButtonSetResultAsSource();
     void uiButtonChangeImageDisplayType();
     void uiButtonSaveImage() const;
     void uiImages();
@@ -60,10 +63,12 @@ private:
 #include "../application.hpp"
 
 std::unique_ptr<computeShader> imageConverter::computeShader_s;
+std::unique_ptr<computeShader> imageConverter::computeShaderInvert_s;
 
 inline void imageConverter::prepareEnvironmentOnce()
 {
     computeShader_s = std::make_unique<computeShader>("GL_RGBA8.comp");
+    computeShaderInvert_s = std::make_unique<computeShader>("invert.comp");
 }
 
 inline void imageConverter::prepareEnvironment()
@@ -105,22 +110,30 @@ inline void imageConverter::cleanEnvironment()
 inline void imageConverter::cleanEnvironmentOnce()
 {
     computeShader_s.reset();
+    computeShaderInvert_s.reset();
 }
 
 inline void imageConverter::uiButtons()
 {
-    ImGui::Columns(6);
-    uiButtonClear();
-    ImGui::NextColumn();
-    uiButtonSetMatrix();
+    ImGui::Columns(4);
+    uiButtonChangeImageDisplayType();
     ImGui::NextColumn();
     uiButtonSelectImage();
     ImGui::NextColumn();
-    uiButtonChangeImageDisplayType();
+    uiButtonSetMatrix();
+    ImGui::NextColumn();
+    uiButtonSaveImage();
+
+
+    ImGui::Columns(4);
+    uiButtonClear();
+    ImGui::NextColumn();
+    uiButtonSetResultAsSource();
     ImGui::NextColumn();
     uiButtonConvertImage();
     ImGui::NextColumn();
-    uiButtonSaveImage();
+    uiButtonInvertImage();
+
     ImGui::Columns(1);
 }
 
@@ -186,6 +199,35 @@ inline void imageConverter::uiButtonConvertImage()
 
         glBindTexture(GL_TEXTURE_2D, 0);
         //imgSource.copy(imgConverted);
+    }
+}
+
+inline void imageConverter::uiButtonInvertImage()
+{
+    if (ImGui::Button("Invert")) {
+        glXCheckError();
+        imgConverted.copy(imgSource);
+        computeShaderInvert_s->use();
+        imgSource.bindImageTexture(0, GL_READ_ONLY);
+        imgConverted.bindImageTexture(1, GL_WRITE_ONLY);
+
+        glDispatchCompute(
+            static_cast<GLuint>(imgSource.getWidth()),
+            static_cast<GLuint>(imgSource.getHeight()),
+            1);
+        // make sure writing to image has finished before read
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glXCheckError();
+    }
+}
+
+inline void imageConverter::uiButtonSetResultAsSource()
+{
+    if (ImGui::Button("Swap")) {
+        glXCheckError();
+        imgSource.copy(imgConverted);
+        glXCheckError();
     }
 }
 
