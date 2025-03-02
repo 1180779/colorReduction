@@ -59,6 +59,8 @@ public:
     [[nodiscard]] constexpr GLint getInternalFormat() const { return GL_RGBA8; }
     [[nodiscard]] GLenum getType() const { return type_; }
 
+    static constexpr type defaultType = scale;
+
 private:
     static std::unique_ptr<shader> shader_s;
 
@@ -86,7 +88,7 @@ private:
     static float vertices_s[6 * 5];
 
     int typeInt_ = 0;
-    type type_ = stretch;
+    type type_ = defaultType;
 };
 
 ///////////////////////////////////////////////////////////////////

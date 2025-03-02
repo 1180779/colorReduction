@@ -9,6 +9,8 @@
 #include <imGui/imgui.h>
 #include "mat.hpp"
 #include "popupBase.hpp"
+#include "ui.hpp"
+#include "../../deps/imGui/src/imgui_internal.h"
 
 class matProviderPopup : popupBase<matProviderPopup> {
 public:
@@ -41,81 +43,76 @@ inline void matProviderPopup::show(mat& data)
     }
 
     if (ImGui::BeginPopupModal("Provide the matrix", nullptr, 0)) {
-        ImGui::PushID("matProviderPopup_columns_rowControls");
-        ImGui::Columns(5, nullptr, false);
-        constexpr auto addRow = "add row";
-        constexpr auto removeRow = "remove row";
-        constexpr auto addColumn = "add column";
-        constexpr auto removeColumn = "remove column";
-        ImGui::SetColumnWidth(0, ImGui::CalcTextSize(addRow).x + padding);
-        ImGui::SetColumnWidth(1, ImGui::CalcTextSize(removeRow).x + padding);
-        ImGui::SetColumnWidth(2, ImGui::CalcTextSize(addColumn).x + padding);
-        ImGui::SetColumnWidth(3, ImGui::CalcTextSize(removeColumn).x + padding);
-        if (ImGui::Button(addRow)) {
-            temp_.addEmptyRow();
+        if (ImGui::BeginTable("matProviderPopup-controls-1", 5)) {
+            ImGui::TableNextRow();
+
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("add row")) {
+                temp_.addEmptyRow();
+            }
+
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("remove row")) {
+                temp_.removeLastRow();
+            }
+
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("add column")) {
+                temp_.addEmptyColumn();
+            }
+
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("remove column")) {
+                temp_.removeLastColumn();
+            }
+
+            ImGui::TableNextColumn();
+            ImGui::Text((std::to_string(temp_.getN()) + 'x' + std::to_string(temp_.getM())).c_str());
+
+            ImGui::EndTable();
         }
-        ImGui::NextColumn();
-        if (ImGui::Button(removeRow)) {
-            temp_.removeLastRow();
-        }
-        ImGui::NextColumn();
-        if (ImGui::Button(addColumn)) {
-            temp_.addEmptyColumn();
-        }
-        ImGui::NextColumn();
-        if (ImGui::Button(removeColumn)) {
-            temp_.removeLastColumn();
-        }
-        ImGui::NextColumn();
-        ImGui::Text((std::to_string(temp_.getN()) + 'x' + std::to_string(temp_.getM())).c_str());
-        ImGui::Columns(1);
-        ImGui::PopID();
         ImGui::Separator();
 
-        /* display by columns */
-        ImGui::PushID("matProviderPopup_columns_matrixData");
-        ImGui::Columns(temp_.getM(), nullptr, false);
-        for (int j = 0; j < temp_.getM(); ++j) {
+        if (ImGui::BeginTable("matProviderPopup-matrix", temp_.getM())) {
             for (int i = 0; i < temp_.getN(); ++i) {
-                ImGui::InputFloat(
-                ("##" + std::to_string(i * temp_.getM() + j)).c_str(),
-                temp_.getData() + i * temp_.getM() + j,
-                    0.0f, 0.0f, "%.3f");
+                ImGui::TableNextRow();
+                for (int j = 0; j < temp_.getM(); ++j) {
+                    ImGui::TableSetColumnIndex(j);
+                    ui::InputFloatFill(
+                        ("##" + std::to_string(i * temp_.getM() + j)).c_str(),
+                        temp_.getData() + i * temp_.getM() + j,
+                        0.0f, 0.0f, "%.3f");
+                }
             }
-            ImGui::NextColumn();
+            ImGui::EndTable();
         }
 
-        ImGui::Columns(1);
-        ImGui::PopID();
-        ImGui::PushID("matProviderPopup_columns_controls");
-        ImGui::Columns(4, nullptr, false);
+        if (ImGui::BeginTable("matProviderPopup-controls-2", 4)) {\
+            ImGui::TableNextRow();
 
-        constexpr auto ok = "ok";
-        constexpr auto cancel = "cancel";
-        constexpr auto clear = "clear";
-        constexpr auto normalize = "normalize";
-        ImGui::SetColumnWidth(0, ImGui::CalcTextSize(ok).x + padding);
-        ImGui::SetColumnWidth(1, ImGui::CalcTextSize(cancel).x + padding);
-        ImGui::SetColumnWidth(2, ImGui::CalcTextSize(clear).x + padding);
-        ImGui::SetColumnWidth(3, ImGui::CalcTextSize(normalize).x + padding);
-        if (ImGui::Button(ok)) {
-            data = temp_;
-            ImGui::CloseCurrentPopup();
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("ok")) {
+                data = temp_;
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("cancel")) {
+                ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("clear")) {
+                temp_.clear();
+            }
+
+            ImGui::TableNextColumn();
+            if (ui::ButtonFill("normalize")) {
+                temp_.normalize();
+            }
+
+            ImGui::EndTable();
         }
-        ImGui::NextColumn();
-        if (ImGui::Button(cancel)) {
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::NextColumn();
-        if (ImGui::Button(clear)) {
-            temp_.clear();
-        }
-        ImGui::NextColumn();
-        if (ImGui::Button(normalize)) {
-            temp_.normalize();
-        }
-        ImGui::Columns(1);
-        ImGui::PopID();
         ImGui::EndPopup();
     }
 }

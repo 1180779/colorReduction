@@ -16,6 +16,8 @@
 #include "conMatSSBO.hpp"
 #include "matProviderPopup.hpp"
 
+#include "ui.hpp"
+
 class application;
 class imageConverter : public window<application> {
 public:
@@ -34,7 +36,7 @@ public:
     void cleanEnvironmentOnce() override;
 
     std::string filename;
-    int selectedType = 0;
+    int selectedType = static_cast<int>(image::defaultType);
     image imgSource;
     image imgConverted;
 
@@ -115,31 +117,46 @@ inline void imageConverter::cleanEnvironmentOnce()
 
 inline void imageConverter::uiButtons()
 {
-    ImGui::Columns(4);
-    uiButtonChangeImageDisplayType();
-    ImGui::NextColumn();
-    uiButtonSelectImage();
-    ImGui::NextColumn();
-    uiButtonSetMatrix();
-    ImGui::NextColumn();
-    uiButtonSaveImage();
+    if (ImGui::BeginTable("controls-1", 4)) {
+        ImGui::TableNextRow();
 
+        ImGui::TableNextColumn();
+        uiButtonChangeImageDisplayType();
 
-    ImGui::Columns(4);
-    uiButtonClear();
-    ImGui::NextColumn();
-    uiButtonSetResultAsSource();
-    ImGui::NextColumn();
-    uiButtonConvertImage();
-    ImGui::NextColumn();
-    uiButtonInvertImage();
+        ImGui::TableNextColumn();
+        uiButtonSelectImage();
 
-    ImGui::Columns(1);
+        ImGui::TableNextColumn();
+        uiButtonSetMatrix();
+
+        ImGui::TableNextColumn();
+        uiButtonSaveImage();
+
+        ImGui::EndTable();
+    }
+
+    if (ImGui::BeginTable("controls-2", 4)) {
+        ImGui::TableNextRow();
+
+        ImGui::TableNextColumn();
+        uiButtonClear();
+
+        ImGui::TableNextColumn();
+        uiButtonSetResultAsSource();
+
+        ImGui::TableNextColumn();
+        uiButtonConvertImage();
+
+        ImGui::TableNextColumn();
+        uiButtonInvertImage();
+
+        ImGui::EndTable();
+    }
 }
 
 inline void imageConverter::uiButtonClear()
 {
-    if (ImGui::Button("clear")) {
+    if (ui::ButtonFill("clear")) {
         imgSource.clear();
         imgConverted.clear();
     }
@@ -147,14 +164,14 @@ inline void imageConverter::uiButtonClear()
 
 inline void imageConverter::uiButtonSetMatrix()
 {
-    if (ImGui::Button("set matrix")) {
+    if (ui::ButtonFill("set matrix")) {
         matProviderPopup.schedule();
     }
 }
 
 inline void imageConverter::uiButtonSelectImage()
 {
-    if (ImGui::Button("select")) {
+    if (ui::ButtonFill("select")) {
         const char * path = tinyfd_openFileDialog("Select image",
             "",
             image::supportedFormatsNum,
@@ -169,7 +186,7 @@ inline void imageConverter::uiButtonSelectImage()
 
 inline void imageConverter::uiButtonConvertImage()
 {
-    if (ImGui::Button("Convert")) {
+    if (ui::ButtonFill("convert")) {
         glXCheckError();
         conMatSSBO.set(conMatSSBO.mat.getN(), conMatSSBO.mat.getM(), conMatSSBO.mat.getData());
         glXCheckError();
@@ -204,7 +221,7 @@ inline void imageConverter::uiButtonConvertImage()
 
 inline void imageConverter::uiButtonInvertImage()
 {
-    if (ImGui::Button("Invert")) {
+    if (ui::ButtonFill("invert")) {
         glXCheckError();
         imgConverted.copy(imgSource);
         computeShaderInvert_s->use();
@@ -224,7 +241,7 @@ inline void imageConverter::uiButtonInvertImage()
 
 inline void imageConverter::uiButtonSetResultAsSource()
 {
-    if (ImGui::Button("Swap")) {
+    if (ui::ButtonFill("swap")) {
         glXCheckError();
         imgSource.copy(imgConverted);
         glXCheckError();
@@ -233,7 +250,7 @@ inline void imageConverter::uiButtonSetResultAsSource()
 
 inline void imageConverter::uiButtonChangeImageDisplayType()
 {
-    if (ImGui::Combo("type", &selectedType, image::types, image::typesNum)) {
+    if (ui::ComboFill("type", &selectedType, image::types, image::typesNum)) {
         auto t = static_cast<image::type>(selectedType);
         imgSource.changeType(t);
         imgConverted.changeType(t);
@@ -242,7 +259,7 @@ inline void imageConverter::uiButtonChangeImageDisplayType()
 
 inline void imageConverter::uiButtonSaveImage() const
 {
-    if (ImGui::Button("save")) {
+    if (ui::ButtonFill("save")) {
         const char * formats[] = { "*.png" };
         const char* path = tinyfd_saveFileDialog("save result", "converted", 1, formats, "");
         imgConverted.writePng(path);
@@ -251,13 +268,19 @@ inline void imageConverter::uiButtonSaveImage() const
 
 inline void imageConverter::uiImages()
 {
-    ImGui::Columns(2);
-    imgSource.display();
-    glXCheckError();
-    ImGui::NextColumn();
-    imgConverted.display();
-    glXCheckError();
-    ImGui::Columns(1);
+    if (ImGui::BeginTable("controls-2", 2)) {
+        ImGui::TableNextRow();
+
+        ImGui::TableNextColumn();
+        imgSource.display();
+        glXCheckError();
+
+        ImGui::TableNextColumn();
+        imgConverted.display();
+        glXCheckError();
+
+        ImGui::EndTable();
+    }
 }
 
 #endif //IMAGECONVERTER_HPP

@@ -8,8 +8,10 @@
 #include <memory>
 #include <tinyfiledialogs/tinyfiledialogs.h>
 #include "image.hpp"
+#include "ui.hpp"
 
 #include "window.hpp"
+#include "../../deps/imGui/src/imgui_internal.h"
 
 class application;
 
@@ -30,7 +32,7 @@ public:
     void cleanEnvironment() override;
     void cleanEnvironmentOnce() override;
 
-    int selectedType = 0;
+    int selectedType = static_cast<int>(image::defaultType);
     image img;
     const char * filename = nullptr;
 };
@@ -54,36 +56,37 @@ inline void imageViewer::ui()
     ImGui::Begin("Image Viewer");
 
     // some buttons in two column layout
-    ImGui::Columns(2);
-    ImGui::SetColumnWidth(0, 100);
-    ImGui::SetNextItemWidth(80);
-    if(ImGui::Button("select", ImVec2(80, 20))) {
-        filename = tinyfd_openFileDialog("Select image",
-            "",
-            image::supportedFormatsNum,
-            image::supportedFormats,
-            "",
-            0);
-        if (filename != nullptr)
-            img.load(filename);
-        glXCheckError();
-    }
-    ImGui::NextColumn();
-    ImGui::SetNextItemWidth(120);
-    if (ImGui::Combo("Type", &selectedType, image::types, image::typesNum)) {
-        img.changeType(static_cast<image::type>(selectedType));
-        glXCheckError();
+    if (ImGui::BeginTable("imageViewer-controls-1", 2)) {
+        ImGui::TableNextRow();
+
+        ImGui::TableNextColumn();
+        if (ui::ComboFill("Type", &selectedType, image::types, image::typesNum)) {
+            img.changeType(static_cast<image::type>(selectedType));
+            glXCheckError();
+        }
+
+        ImGui::TableNextColumn();
+        if(ui::ButtonFill("select")) {
+            filename = tinyfd_openFileDialog("Select image",
+                "",
+                image::supportedFormatsNum,
+                image::supportedFormats,
+                "",
+                0);
+            if (filename != nullptr)
+                img.load(filename);
+            glXCheckError();
+        }
+
+        ImGui::EndTable();
     }
 
     // image
-    ImGui::Columns(1);
     ImGui::Text((std::string("Selected image: ") + (filename != nullptr ? filename : "<none>")).c_str());
-    glXCheckError();
     img.display();
     glXCheckError();
 
     ImGui::End();
-    glXCheckError();
 }
 
 inline void imageViewer::handleInput() { }
